@@ -1,0 +1,62 @@
+name: Build ImmortalWrt for RAX3000Me
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
+            build-essential libncurses-dev python3 python3-pip rsync git \
+            unzip bison flex swig device-tree-compiler bc
+      
+      - name: Clone ImmortalWrt
+        run: |
+          git clone --depth 1 https://github.com/immortalwrt/immortalwrt.git
+      
+      - name: Update feeds
+        run: |
+          cd immortalwrt
+          ./scripts/feeds update -a
+          ./scripts/feeds install -a
+      
+      - name: Configure
+        run: |
+          cd immortalwrt
+          cat > .config << 'EOF'
+          CONFIG_TARGET_mediatek=y
+          CONFIG_TARGET_mediatek_mt7981=y
+          CONFIG_TARGET_MULTI_PROFILE=y
+          CONFIG_TARGET_PER_DEVICE_ROOTFS=y
+          CONFIG_PACKAGE_luci=y
+          CONFIG_PACKAGE_luci-base=y
+          CONFIG_PACKAGE_luci-compat=y
+          CONFIG_PACKAGE_luci-lib-ipkg=y
+          CONFIG_PACKAGE_luci-app-firewall=y
+          CONFIG_PACKAGE_luci-app-opkg=y
+          CONFIG_PACKAGE_kmod-mt7915e-firmware=y
+          EOF
+          make defconfig
+      
+      - name: Build
+        run: |
+          cd immortalwrt
+          make -j$(nproc)
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: RAX3000Me-firmware
+          path: |
+            immortalwrt/bin/targets/mediatek/mt7981/*.bin
+            immortalwrt/bin/targets/mediatek/mt7981/*.itb
+            immortalwrt/bin/targets/mediatek/mt7981/*.manifest
