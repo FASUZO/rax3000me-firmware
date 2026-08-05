@@ -9,88 +9,114 @@ jobs:
     timeout-minutes: 360
     
     steps:
+      - name: Maximize build space
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 512
+          swap-size-mb: 1024
+          remove-dotnet: 'true'
+          remove-android: 'true'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+          remove-docker-images: 'true'
+
       - name: Checkout
         uses: actions/checkout@v4
+      
+      - name: Cache dl and ccache
+        uses: actions/cache@v4
+        with:
+          path: |
+            immortalwrt/dl
+            ~/.ccache
+          key: ${{ runner.os }}-openwrt-cache-${{ hashFiles('**/feeds.conf.default') }}-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-openwrt-cache-${{ hashFiles('**/feeds.conf.default') }}-
+            ${{ runner.os }}-openwrt-cache-
       
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
             build-essential libncurses-dev python3 python3-pip rsync git \
-            unzip bison flex swig device-tree-compiler bc
+            unzip bison flex swig device-tree-compiler bc curl wget ccache
       
       - name: Clone ImmortalWrt
         run: |
           git clone --depth 1 https://github.com/immortalwrt/immortalwrt.git
       
-      - name: Update feeds
+      - name: Update and install feeds
         run: |
           cd immortalwrt
           ./scripts/feeds update -a
           ./scripts/feeds install -a
       
-      - name: Configure
+      - name: Configure Firmware
         run: |
           cd immortalwrt
-          {
-            echo "CONFIG_TARGET_mediatek=y"
-            echo "CONFIG_TARGET_mediatek_filogic=y"
-            echo "CONFIG_TARGET_MULTI_PROFILE=y"
-            echo "CONFIG_TARGET_PER_DEVICE_ROOTFS=y"
-            echo "CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_cmcc_rax3000me=y"
-            echo "CONFIG_PACKAGE_luci=y"
-            echo "CONFIG_PACKAGE_luci-base=y"
-            echo "CONFIG_PACKAGE_luci-compat=y"
-            echo "CONFIG_PACKAGE_luci-lib-ipkg=y"
-            echo "CONFIG_PACKAGE_luci-app-firewall=y"
-            echo "CONFIG_PACKAGE_luci-app-opkg=y"
-            echo "CONFIG_PACKAGE_luci-theme-argon=y"
-            echo "CONFIG_PACKAGE_kmod-mt7915e-firmware=y"
-            echo "CONFIG_PACKAGE_mt7981-wo-firmware=y"
-            echo "CONFIG_PACKAGE_irqbalance=y"
-            echo "CONFIG_PACKAGE_sqm-scripts=y"
-            echo "CONFIG_PACKAGE_luci-app-sqm=y"
-            echo "CONFIG_PACKAGE_luci-app-ttyd=y"
-            echo "CONFIG_PACKAGE_curl=y"
-            echo "CONFIG_PACKAGE_wget-ssl=y"
-            echo "CONFIG_PACKAGE_htop=y"
-            echo "CONFIG_PACKAGE_nano=y"
-            echo "CONFIG_PACKAGE_tcpdump=y"
-            echo "CONFIG_PACKAGE_iperf3=y"
-          } > .config
+          rm -rf tmp/
+          
+          cat >> .config <<EOF
+          CONFIG_TARGET_mediatek=y
+          CONFIG_TARGET_mediatek_mt7981=y
+          CONFIG_TARGET_DEVICE_mediatek_mt7981_DEVICE_cmcc_rax3000me=y
+          
+          CONFIG_CCACHE=y
+          
+          CONFIG_PACKAGE_luci=y
+          CONFIG_PACKAGE_luci-base=y
+          CONFIG_PACKAGE_luci-compat=y
+          CONFIG_PACKAGE_luci-lib-ipkg=y
+          CONFIG_PACKAGE_luci-app-firewall=y
+          CONFIG_PACKAGE_luci-app-opkg=y
+          CONFIG_PACKAGE_luci-theme-argon=y
+          
+          CONFIG_PACKAGE_kmod-mt7915e-firmware=y
+          CONFIG_PACKAGE_mt7981-wo-firmware=y
+          CONFIG_PACKAGE_irqbalance=y
+          
+          CONFIG_PACKAGE_sqm-scripts=y
+          CONFIG_PACKAGE_luci-app-sqm=y
+          CONFIG_PACKAGE_luci-app-ttyd=y
+          
+          CONFIG_PACKAGE_curl=y
+          CONFIG_PACKAGE_wget-ssl=y
+          CONFIG_PACKAGE_htop=y
+          CONFIG_PACKAGE_nano=y
+          CONFIG_PACKAGE_tcpdump=y
+          CONFIG_PACKAGE_iperf3=y
+          EOF
+          
           make defconfig
       
-      - name: Verify config
+      - name: Download packages
         run: |
           cd immortalwrt
-          echo "=== Config summary ==="
-          grep -E "^CONFIG_TARGET" .config | head -20
-          echo "=== Device config ==="
-          grep -E "cmcc|rax3000" .config || echo "No RAX3000Me config found"
+          make download -j8
+          find dl -size -1024c -exec rm -f {} \;
       
-      - name: Build
+      - name: Compile Firmware
         run: |
           cd immortalwrt
-          make -j$(nproc)
+          make -j$(nproc) || make -j1 V=s
       
-      - name: Prepare artifacts
+      - name: Organize artifacts
         run: |
-          cd immortalwrt
-          echo "=== Build output ==="
-          ls -la bin/targets/mediatek/filogic/ 2>/dev/null || echo "No filogic directory"
-          echo "=== Find firmware files ==="
-          find bin/targets -name "*.bin" -o -name "*.itb" 2>/dev/null | head -20
-          echo "=== Copy to output ==="
           mkdir -p /tmp/firmware-output
-          find bin/targets -name "*rax3000m*" -o -name "*nand*preloader*" -o -name "*nand*fip*" -o -name "*squashfs*" -o -name "*initramfs*" 2>/dev/null | while read f; do
-            cp "$f" /tmp/firmware-output/ 2>/dev/null && echo "Copied: $f"
-          done
-          echo "=== Output ==="
-          ls -la /tmp/firmware-output/ 2>/dev/null || echo "No output files"
+          cd immortalwrt/bin/targets/mediatek/mt7981/
+          
+          cp *sysupgrade* /tmp/firmware-output/ 2>/dev/null || true
+          cp *factory* /tmp/firmware-output/ 2>/dev/null || true
+          cp *initramfs* /tmp/firmware-output/ 2>/dev/null || true
+          cp *preloader* /tmp/firmware-output/ 2>/dev/null || true
+          cp *fip* /tmp/firmware-output/ 2>/dev/null || true
+          
+          echo "=== Built Firmware Files ==="
+          ls -lh /tmp/firmware-output/
       
-      - name: Upload artifacts
+      - name: Upload firmware
         uses: actions/upload-artifact@v4
         with:
-          name: RAX3000Me-firmware
-          path: /tmp/firmware-output/*
-          if-no-files-found: warn
+          name: ImmortalWrt-RAX3000Me-Firmware
+          path: /tmp/firmware-output/
+          if-no-files-found: error
