@@ -64,20 +64,27 @@ jobs:
           cd immortalwrt
           make -j$(nproc)
       
-      - name: List build output
+      - name: Prepare artifacts
         run: |
           cd immortalwrt
-          echo "=== Build output directory ==="
-          find bin/targets -name "*.bin" -o -name "*.itb" 2>/dev/null || echo "No .bin or .itb files found"
-          echo "=== Full directory listing ==="
-          ls -la bin/targets/mediatek/mt7981/ 2>/dev/null || echo "Directory not found"
+          echo "=== Searching for firmware files ==="
+          find bin -name "*.bin" -o -name "*.itb" 2>/dev/null
+          echo "=== Target directory ==="
+          ls -la bin/targets/mediatek/mt7981/ 2>/dev/null || echo "mt7981 directory not found"
+          echo "=== All target directories ==="
+          find bin/targets -maxdepth 3 -type d 2>/dev/null
+          echo "=== Copying files to output ==="
+          mkdir -p /tmp/firmware-output
+          find bin/targets -name "*rax3000m*" -o -name "*nand*preloader*" -o -name "*nand*fip*" -o -name "*squashfs*" -o -name "*initramfs*" 2>/dev/null | while read f; do
+            cp "$f" /tmp/firmware-output/
+            echo "Copied: $f"
+          done
+          echo "=== Output files ==="
+          ls -la /tmp/firmware-output/
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: RAX3000Me-firmware
-          path: |
-            immortalwrt/bin/targets/mediatek/mt7981/*.bin
-            immortalwrt/bin/targets/mediatek/mt7981/*.itb
-            immortalwrt/bin/targets/mediatek/mt7981/*.manifest
+          path: /tmp/firmware-output/*
           if-no-files-found: warn
