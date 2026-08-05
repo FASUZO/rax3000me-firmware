@@ -57,8 +57,8 @@ jobs:
           rm -rf tmp/
           {
             echo 'CONFIG_TARGET_mediatek=y'
-            echo 'CONFIG_TARGET_mediatek_mt7981=y'
-            echo 'CONFIG_TARGET_DEVICE_mediatek_mt7981_DEVICE_cmcc_rax3000me=y'
+            echo 'CONFIG_TARGET_mediatek_filogic=y'
+            echo 'CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_cmcc_rax3000me=y'
             echo 'CONFIG_CCACHE=y'
             echo 'CONFIG_PACKAGE_luci=y'
             echo 'CONFIG_PACKAGE_luci-base=y'
@@ -96,7 +96,7 @@ jobs:
       - name: Organize artifacts
         run: |
           mkdir -p /tmp/firmware-output
-          cd immortalwrt/bin/targets/mediatek/mt7981/
+          cd immortalwrt/bin/targets/mediatek/filogic/
           
           cp *sysupgrade* /tmp/firmware-output/ 2>/dev/null || true
           cp *factory* /tmp/firmware-output/ 2>/dev/null || true
