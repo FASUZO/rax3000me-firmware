@@ -34,9 +34,10 @@ jobs:
           cd immortalwrt
           {
             echo "CONFIG_TARGET_mediatek=y"
-            echo "CONFIG_TARGET_mediatek_mt7981=y"
+            echo "CONFIG_TARGET_mediatek_filogic=y"
             echo "CONFIG_TARGET_MULTI_PROFILE=y"
             echo "CONFIG_TARGET_PER_DEVICE_ROOTFS=y"
+            echo "CONFIG_TARGET_DEVICE_mediatek_filogic_DEVICE_cmcc_rax3000me=y"
             echo "CONFIG_PACKAGE_luci=y"
             echo "CONFIG_PACKAGE_luci-base=y"
             echo "CONFIG_PACKAGE_luci-compat=y"
@@ -59,6 +60,14 @@ jobs:
           } > .config
           make defconfig
       
+      - name: Verify config
+        run: |
+          cd immortalwrt
+          echo "=== Config summary ==="
+          grep -E "^CONFIG_TARGET" .config | head -20
+          echo "=== Device config ==="
+          grep -E "cmcc|rax3000" .config || echo "No RAX3000Me config found"
+      
       - name: Build
         run: |
           cd immortalwrt
@@ -68,12 +77,12 @@ jobs:
         run: |
           cd immortalwrt
           echo "=== Build output ==="
-          ls -la bin/targets/ 2>/dev/null || echo "No targets directory"
-          echo "=== Find all firmware files ==="
-          find bin -name "*.bin" -o -name "*.itb" 2>/dev/null || echo "No firmware files found"
+          ls -la bin/targets/mediatek/filogic/ 2>/dev/null || echo "No filogic directory"
+          echo "=== Find firmware files ==="
+          find bin/targets -name "*.bin" -o -name "*.itb" 2>/dev/null | head -20
           echo "=== Copy to output ==="
           mkdir -p /tmp/firmware-output
-          find bin -name "*nand*" -o -name "*squashfs*" -o -name "*initramfs*" 2>/dev/null | head -20 | while read f; do
+          find bin/targets -name "*rax3000m*" -o -name "*nand*preloader*" -o -name "*nand*fip*" -o -name "*squashfs*" -o -name "*initramfs*" 2>/dev/null | while read f; do
             cp "$f" /tmp/firmware-output/ 2>/dev/null && echo "Copied: $f"
           done
           echo "=== Output ==="
