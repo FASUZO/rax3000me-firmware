@@ -32,31 +32,31 @@ jobs:
       - name: Configure
         run: |
           cd immortalwrt
-          cat > .config << 'EOF'
-          CONFIG_TARGET_mediatek=y
-          CONFIG_TARGET_mediatek_mt7981=y
-          CONFIG_TARGET_MULTI_PROFILE=y
-          CONFIG_TARGET_PER_DEVICE_ROOTFS=y
-          CONFIG_PACKAGE_luci=y
-          CONFIG_PACKAGE_luci-base=y
-          CONFIG_PACKAGE_luci-compat=y
-          CONFIG_PACKAGE_luci-lib-ipkg=y
-          CONFIG_PACKAGE_luci-app-firewall=y
-          CONFIG_PACKAGE_luci-app-opkg=y
-          CONFIG_PACKAGE_luci-theme-argon=y
-          CONFIG_PACKAGE_kmod-mt7915e-firmware=y
-          CONFIG_PACKAGE_mt7981-wo-firmware=y
-          CONFIG_PACKAGE_irqbalance=y
-          CONFIG_PACKAGE_sqm-scripts=y
-          CONFIG_PACKAGE_luci-app-sqm=y
-          CONFIG_PACKAGE_luci-app-ttyd=y
-          CONFIG_PACKAGE_curl=y
-          CONFIG_PACKAGE_wget-ssl=y
-          CONFIG_PACKAGE_htop=y
-          CONFIG_PACKAGE_nano=y
-          CONFIG_PACKAGE_tcpdump=y
-          CONFIG_PACKAGE_iperf3=y
-          EOF
+          {
+            echo "CONFIG_TARGET_mediatek=y"
+            echo "CONFIG_TARGET_mediatek_mt7981=y"
+            echo "CONFIG_TARGET_MULTI_PROFILE=y"
+            echo "CONFIG_TARGET_PER_DEVICE_ROOTFS=y"
+            echo "CONFIG_PACKAGE_luci=y"
+            echo "CONFIG_PACKAGE_luci-base=y"
+            echo "CONFIG_PACKAGE_luci-compat=y"
+            echo "CONFIG_PACKAGE_luci-lib-ipkg=y"
+            echo "CONFIG_PACKAGE_luci-app-firewall=y"
+            echo "CONFIG_PACKAGE_luci-app-opkg=y"
+            echo "CONFIG_PACKAGE_luci-theme-argon=y"
+            echo "CONFIG_PACKAGE_kmod-mt7915e-firmware=y"
+            echo "CONFIG_PACKAGE_mt7981-wo-firmware=y"
+            echo "CONFIG_PACKAGE_irqbalance=y"
+            echo "CONFIG_PACKAGE_sqm-scripts=y"
+            echo "CONFIG_PACKAGE_luci-app-sqm=y"
+            echo "CONFIG_PACKAGE_luci-app-ttyd=y"
+            echo "CONFIG_PACKAGE_curl=y"
+            echo "CONFIG_PACKAGE_wget-ssl=y"
+            echo "CONFIG_PACKAGE_htop=y"
+            echo "CONFIG_PACKAGE_nano=y"
+            echo "CONFIG_PACKAGE_tcpdump=y"
+            echo "CONFIG_PACKAGE_iperf3=y"
+          } > .config
           make defconfig
       
       - name: Build
@@ -67,20 +67,17 @@ jobs:
       - name: Prepare artifacts
         run: |
           cd immortalwrt
-          echo "=== Searching for firmware files ==="
-          find bin -name "*.bin" -o -name "*.itb" 2>/dev/null
-          echo "=== Target directory ==="
-          ls -la bin/targets/mediatek/mt7981/ 2>/dev/null || echo "mt7981 directory not found"
-          echo "=== All target directories ==="
-          find bin/targets -maxdepth 3 -type d 2>/dev/null
-          echo "=== Copying files to output ==="
+          echo "=== Build output ==="
+          ls -la bin/targets/ 2>/dev/null || echo "No targets directory"
+          echo "=== Find all firmware files ==="
+          find bin -name "*.bin" -o -name "*.itb" 2>/dev/null || echo "No firmware files found"
+          echo "=== Copy to output ==="
           mkdir -p /tmp/firmware-output
-          find bin/targets -name "*rax3000m*" -o -name "*nand*preloader*" -o -name "*nand*fip*" -o -name "*squashfs*" -o -name "*initramfs*" 2>/dev/null | while read f; do
-            cp "$f" /tmp/firmware-output/
-            echo "Copied: $f"
+          find bin -name "*nand*" -o -name "*squashfs*" -o -name "*initramfs*" 2>/dev/null | head -20 | while read f; do
+            cp "$f" /tmp/firmware-output/ 2>/dev/null && echo "Copied: $f"
           done
-          echo "=== Output files ==="
-          ls -la /tmp/firmware-output/
+          echo "=== Output ==="
+          ls -la /tmp/firmware-output/ 2>/dev/null || echo "No output files"
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
