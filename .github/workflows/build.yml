@@ -23,15 +23,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       
+      - name: Clone ImmortalWrt
+        run: |
+          git clone --depth 1 https://github.com/immortalwrt/immortalwrt.git
+      
       - name: Cache dl and ccache
         uses: actions/cache@v4
         with:
           path: |
             immortalwrt/dl
-            ~/.ccache
-          key: ${{ runner.os }}-openwrt-cache-${{ hashFiles('**/feeds.conf.default') }}-${{ github.run_id }}
+            immortalwrt/.ccache
+          key: ${{ runner.os }}-openwrt-cache-${{ hashFiles('immortalwrt/feeds.conf.default') }}-${{ github.run_id }}
           restore-keys: |
-            ${{ runner.os }}-openwrt-cache-${{ hashFiles('**/feeds.conf.default') }}-
+            ${{ runner.os }}-openwrt-cache-${{ hashFiles('immortalwrt/feeds.conf.default') }}-
             ${{ runner.os }}-openwrt-cache-
       
       - name: Install dependencies
@@ -40,10 +44,6 @@ jobs:
           sudo apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu \
             build-essential libncurses-dev python3 python3-pip rsync git \
             unzip bison flex swig device-tree-compiler bc curl wget ccache
-      
-      - name: Clone ImmortalWrt
-        run: |
-          git clone --depth 1 https://github.com/immortalwrt/immortalwrt.git
       
       - name: Update and install feeds
         run: |
